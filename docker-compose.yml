@@ -2,7 +2,20 @@ services:
   web:
     build: .
     ports:
-      - 5000:${USER_AUTH_PORT}
+      - 8000:8000
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          target: /app
+          ignore: _data
+    environment:
+      USER_AUTH_LOG_LEVEL: ${USER_AUTH_LOG_LEVEL}
+      USER_AUTH_DEBUG: ${USER_AUTH_DEBUG}
+      USER_AUTH_HOST: 0.0.0.0
+      USER_AUTH_PORT: 8000
+      USER_AUTH_API_SECRET: ${USER_AUTH_API_SECRET}
+      USER_AUTH_DB_URL: ${USER_AUTH_DB_URL}
 
   postgres-db:
     image: "postgres:17"
