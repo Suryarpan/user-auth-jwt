@@ -8,9 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/Suryarpan/user-auth-jwt/handlers"
+	"github.com/Suryarpan/user-auth-jwt/middleware"
+	"github.com/Suryarpan/user-auth-jwt/utils"
 )
 
-func setupLogger(config *ConfigType) {
+func setupLogger(config *utils.ConfigType) {
 	logConf := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		AddSource: true,
 		Level:     config.LogLevel,
@@ -31,19 +35,33 @@ func lookSignal(srv *http.Server, connChan chan any) {
 }
 
 func main() {
-	config := NewConf()
+	config := utils.NewConf()
 	// basic setup
 	setupLogger(config)
 	// mux setup
-	mux := http.NewServeMux()
+	baseMux := http.NewServeMux()
+	// attach handlers
+	handlers.AttachHealthHandler(baseMux)
+	// api versioning
+	v1router := http.NewServeMux()
+	v1router.Handle("/api/v1/", middleware.ReqLogger(http.StripPrefix("/api/v1", baseMux)))
+
 	// server setup
 	var srv http.Server = http.Server{
 		Addr:     net.JoinHostPort(config.Host, config.Port),
 		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), config.LogLevel),
-		Handler:  mux,
+		Handler:  v1router,
 	}
 	idleConnsChan := make(chan any)
 	go lookSignal(&srv, idleConnsChan)
+
+	slog.Info(
+		"starting server",
+		"host", config.Host,
+		"port", config.Port,
+		"debug", config.Debug,
+		"log_level", config.LogLevel,
+	)
 	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("could not start the server", "error", err)
 		os.Exit(1)
