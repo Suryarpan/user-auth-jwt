@@ -1,7 +1,6 @@
-package main
+package utils
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
@@ -40,15 +39,6 @@ func parseLevel(val string) slog.Level {
 	return level
 }
 
-func parseSecret(val string) []byte {
-	var secret []byte
-	sz, err := base64.StdEncoding.Decode(secret, []byte(val))
-	if err != nil || sz == 0 {
-		panic("could not parse secret")
-	}
-	return secret
-}
-
 func getEnv(env string) string {
 	var key = EnvPrefix + "_" + env
 	val, ok := os.LookupEnv(key)
@@ -68,7 +58,7 @@ func NewConf() *ConfigType {
 	config = &ConfigType{
 		LogLevel: parseLevel(getEnv("LOG_LEVEL")),
 		Debug:    parseBool(getEnv("DEBUG")),
-		Secret:   parseSecret(getEnv("API_SECRET")),
+		Secret:   []byte(getEnv("API_SECRET")),
 		Host:     getEnv("HOST"),
 		Port:     getEnv("PORT"),
 		DbUrl:    getEnv("DB_URL"),
