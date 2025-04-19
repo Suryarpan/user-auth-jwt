@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/Suryarpan/user-auth-jwt/handlers"
 	"github.com/Suryarpan/user-auth-jwt/middleware"
@@ -25,7 +24,7 @@ func setupLogger(config *utils.ConfigType) {
 
 func lookSignal(srv *http.Server, connChan chan any) {
 	sigClose := make(chan os.Signal, 1)
-	signal.Notify(sigClose, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigClose, os.Interrupt)
 	<-sigClose
 	err := srv.Shutdown(context.Background())
 	if err != nil {
@@ -38,13 +37,19 @@ func main() {
 	config := utils.NewConf()
 	// basic setup
 	setupLogger(config)
+	middleware.LLOSetup()
+	defer middleware.LLOClose()
 	// mux setup
 	baseMux := http.NewServeMux()
 	// attach handlers
 	handlers.AttachHealthHandler(baseMux)
 	// api versioning
+	ms := middleware.ChainMiddleware(
+		middleware.ReqLogger,
+		middleware.LLOMiddleware,
+	)
 	v1router := http.NewServeMux()
-	v1router.Handle("/api/v1/", middleware.ReqLogger(http.StripPrefix("/api/v1", baseMux)))
+	v1router.Handle("/api/v1/", ms(http.StripPrefix("/api/v1", baseMux)))
 
 	// server setup
 	var srv http.Server = http.Server{
