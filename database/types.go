@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// DB User
 type User struct {
 	PvtId        int
 	UserId       pgtype.UUID
@@ -32,6 +33,11 @@ func (u *User) ScanRow(row pgx.Row) error {
 		&u.LastLoggedIn,
 	)
 	return err
+}
+
+// Query Param structs
+type HealthChecks struct {
+	Data string
 }
 
 type CreateUserParams struct {
