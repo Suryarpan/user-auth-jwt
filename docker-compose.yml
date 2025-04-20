@@ -16,8 +16,10 @@ services:
       USER_AUTH_PORT: 8000
       USER_AUTH_API_SECRET: ${USER_AUTH_API_SECRET}
       USER_AUTH_DB_URL: ${USER_AUTH_DB_URL}
+      USER_AUTH_REDIS_URL: ${USER_AUTH_REDIS_URL}
     depends_on:
       - postgres-db
+      - redis-db
 
   postgres-db:
     image: "postgres:17"
@@ -33,3 +35,12 @@ services:
       POSTGRES_DB: ${USER_AUTH_PG_DATABASE}
       PGDATA: /var/lib/pgsql/data
       POSTGRES_INITDB_WALDIR: /var/lib/pgsql/pg_wal
+
+  redis-db:
+    image: redis:8.0-rc1-alpine
+    restart: always
+    ports:
+      - 6379:6379
+    volumes:
+      - ${PWD}/_data/redis_data:/data
+    command: [ "--save", "60", "1" ]
