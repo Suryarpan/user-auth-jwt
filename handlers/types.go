@@ -43,3 +43,15 @@ type createUserReq struct {
 	DisplayName string `json:"display_name" validate:"required,min=5,max=150"`
 	Password    string `json:"password" validate:"required,printascii,min=8"`
 }
+
+// login user handler
+type loginUserReq struct {
+	Username string `json:"username" validate:"required,min=5,max=50"`
+	Password string `json:"password" validate:"required,printascii,min=8"`
+}
+type loginUserResp struct {
+	AccessToken      string    `json:"access_token"`
+	AccessExpiresAt  time.Time `json:"access_token_expires_at"`
+	RefreshToken     string    `json:"refresh_token"`
+	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
+}

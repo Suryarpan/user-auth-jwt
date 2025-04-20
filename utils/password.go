@@ -13,7 +13,7 @@ const bcryptMaxPassLen int = 72
 var ErrCouldNotHash error = errors.New("could generate hash of password")
 
 func GenerateSalt() ([]byte, error) {
-	salt := make([]byte, 0, bcryptMaxPassLen)
+	salt := make([]byte, bcryptMaxPassLen)
 	_, err := rand.Read(salt)
 	return salt, err
 }

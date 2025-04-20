@@ -13,7 +13,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	config := utils.NewConf()
 	llo := middleware.GetLLObject(r)
 	// Query DB
-	res, err := database.HealthCheck(r, llo.Conn, database.HealthChecks{Data: "hheelllloooo"})
+	res, err := database.HealthCheck(r, llo.PgConn, database.HealthChecks{Data: "hheelllloooo"})
 	if err != nil {
 		slog.Error("could not query database", "error", err)
 		utils.EncodeError(w, http.StatusInternalServerError, "could not get data")
