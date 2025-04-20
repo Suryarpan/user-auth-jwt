@@ -2,18 +2,27 @@ package utils
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+const bcryptMaxPassLen int = 72
+
 var ErrCouldNotHash error = errors.New("could generate hash of password")
+
+func GenerateSalt() ([]byte, error) {
+	salt := make([]byte, 0, bcryptMaxPassLen)
+	_, err := rand.Read(salt)
+	return salt, err
+}
 
 func combineSalt(password, salt []byte) []byte {
 	combined := bytes.Clone(password)
 	combined = append(combined, salt...)
-	if len(combined) > 72 {
-		combined = combined[:72]
+	if len(combined) > bcryptMaxPassLen {
+		combined = combined[:bcryptMaxPassLen]
 	}
 	return combined
 }

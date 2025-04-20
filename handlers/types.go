@@ -17,7 +17,7 @@ type healthResp struct {
 
 // public user details
 
-type UserPublic struct {
+type userPublic struct {
 	UserId       pgtype.UUID `json:"user_id"`
 	Username     string      `json:"username"`
 	DisplayName  string      `json:"display_name"`
@@ -26,18 +26,20 @@ type UserPublic struct {
 	LastLoggedIn time.Time   `json:"last_logged_in"`
 }
 
-func (u *UserPublic) FromUser(du database.User) {
-	u.UserId = du.UserId
-	u.Username = du.Username
-	u.DisplayName = du.DisplayName
-	u.CreatedAt = du.CreatedAt
-	u.UpdatedAt = du.UpdatedAt
-	u.LastLoggedIn = du.LastLoggedIn
+func newPublicUser(du database.User) userPublic {
+	return userPublic{
+		UserId:       du.UserId,
+		Username:     du.Username,
+		DisplayName:  du.DisplayName,
+		CreatedAt:    du.CreatedAt,
+		UpdatedAt:    du.UpdatedAt,
+		LastLoggedIn: du.LastLoggedIn,
+	}
 }
 
 // create user handler
 type createUserReq struct {
-	Username    string `json:"user_name"`
-	DisplayName string `json:"display_name"`
-	Password    string `json:"password"`
+	Username    string `json:"username" validate:"required,min=5,max=50"`
+	DisplayName string `json:"display_name" validate:"required,min=5,max=150"`
+	Password    string `json:"password" validate:"required,printascii,min=8"`
 }
