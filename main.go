@@ -43,6 +43,7 @@ func main() {
 	baseMux := http.NewServeMux()
 	// attach handlers
 	handlers.AttachHealthHandler(baseMux)
+	handlers.AttachUserHandler(baseMux)
 	// api versioning
 	ms := middleware.ChainMiddleware(
 		middleware.ReqLogger,
