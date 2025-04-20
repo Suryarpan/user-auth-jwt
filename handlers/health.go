@@ -9,12 +9,6 @@ import (
 	"github.com/Suryarpan/user-auth-jwt/utils"
 )
 
-type healthResp struct {
-	Status   string         `json:"status"`
-	Config   map[string]any `json:"config,omitempty"`
-	DbResult string         `json:"db_result"`
-}
-
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	config := utils.NewConf()
 	llo := middleware.GetLLObject(r)
