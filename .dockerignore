@@ -1,2 +1,2 @@
-_data
-vendor
+_data/
+.env
