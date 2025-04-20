@@ -12,6 +12,8 @@ import (
 const (
 	usedUser    string = "username is already taken"
 	serverError string = "could not create new user"
+	authFail    string = "username or password is incorrect"
+	loginFail   string = "could not login"
 )
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,7 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// additional validation
-	_, err = database.GetUserByUserName(r, llo.Conn, u.Username)
+	_, err = database.GetUserByUserName(r, llo.PgConn, u.Username)
 	if err == nil {
 		slog.Error("username is already used", "name", u.Username, "display_name", u.DisplayName)
 		utils.EncodeError(w, http.StatusConflict, usedUser)
@@ -42,7 +44,7 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// store in db
-	cu, err := database.CreateUser(r, llo.Conn, database.CreateUserParams{
+	cu, err := database.CreateUser(r, llo.PgConn, database.CreateUserParams{
 		Username:     u.Username,
 		DisplayName:  u.DisplayName,
 		Password:     password,
@@ -56,6 +58,53 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 	utils.Encode(w, http.StatusCreated, newPublicUser(cu))
 }
 
+func loginUserHandler(w http.ResponseWriter, r *http.Request) {
+	u := loginUserReq{}
+	llo := middleware.GetLLObject(r)
+	err := utils.ValidateReq(w, r, llo.Validator, &u)
+	if err != nil {
+		return
+	}
+	// additional validation
+	du, err := database.GetUserByUserName(r, llo.PgConn, u.Username)
+	if err != nil {
+		slog.Error("could not get username", "name", u.Username)
+		utils.EncodeError(w, http.StatusUnauthorized, authFail)
+		return
+	}
+	isValid := utils.IsPassword(du.Password, []byte(u.Password), du.PasswordSalt)
+	if !isValid {
+		slog.Error("incorrect password provided", "name", u.Username)
+		utils.EncodeError(w, http.StatusUnauthorized, authFail)
+		return
+	}
+	// tokens
+	accToken, accExpiry, err1 := middleware.UserToToken(du)
+	rfsToken, rfsExpiry, err2 := middleware.RefreshToken(du, accExpiry)
+	if err1 != nil || err2 != nil {
+		slog.Error("could not generate tokens", "access_error", err1, "refresh_error", err2)
+		utils.EncodeError(w, http.StatusInternalServerError, loginFail)
+		return
+	}
+	err = llo.RedisConn.SetEx(r.Context(), utils.GetRedisKey(middleware.RefreshNameSpace, rfsToken), du.UserId.String(), middleware.RefershTokenDuration).Err()
+	if err != nil {
+		slog.Error("could not save refresh token", "error", err)
+		utils.EncodeError(w, http.StatusInternalServerError, loginFail)
+		return
+	}
+	resp := loginUserResp{
+		AccessToken:      accToken,
+		AccessExpiresAt:  accExpiry,
+		RefreshToken:     rfsToken,
+		RefreshExpiresAt: rfsExpiry,
+	}
+	err = utils.Encode(w, http.StatusOK, resp)
+	if err != nil {
+		slog.Error("could not marshal", "error", err)
+	}
+}
+
 func AttachUserHandler(mux *http.ServeMux) {
 	mux.HandleFunc("POST /user", createUserHandler)
+	mux.HandleFunc("POST /login", loginUserHandler)
 }

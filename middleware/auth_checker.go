@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,11 +22,16 @@ import (
 type ctxKeyUserData string
 
 const (
-	ctxUserDataKey  ctxKeyUserData = "USER_AUTH_USER_DATA"
-	userAuthHeader  string         = "Authorization"
-	userTokenPrefix string         = "Bearer "
-	TokenIssuer     string         = "chat-api-auth"
-	lenPrefix       int            = len(userTokenPrefix)
+	ctxUserDataKey      ctxKeyUserData = "USER_AUTH_USER_DATA"
+	userAuthHeader      string         = "Authorization"
+	userTokenPrefix     string         = "Bearer "
+	TokenIssuer         string         = "chat-api-auth"
+	lenPrefix           int            = len(userTokenPrefix)
+	AccessTokenDuration time.Duration  = 2 * time.Hour
+	// refresh token
+	RefreshNameSpace     string        = "user_refresh"
+	RefreshTokenLen      uint          = 128
+	RefershTokenDuration time.Duration = 24 * time.Hour
 	// messages
 	notAuthed     string = "token not available"
 	wrongHeader   string = "incorrect header structure"
@@ -71,20 +78,33 @@ func tokenToUser(s string, secret []byte) (*tokenData, error) {
 	return nil, fmt.Errorf("unknown claims type")
 }
 
-func UserToToken(u database.User) (string, error) {
+func UserToToken(u database.User) (string, time.Time, error) {
 	config := utils.NewConf()
+	now := time.Now().UTC()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS384, tokenData{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Audience:  RegularAudience,
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24).UTC()),
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-			NotBefore: jwt.NewNumericDate(time.Now().UTC()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
 			Issuer:    TokenIssuer,
 			Subject:   u.Username,
 		},
 		UserId: u.UserId,
 	})
-	return token.SignedString(config.Secret)
+	tok, err := token.SignedString(config.Secret)
+	return tok, now, err
+}
+
+func RefreshToken(u database.User, accExpiry time.Time) (string, time.Time, error) {
+	tok := make([]byte, RefreshTokenLen)
+	expiry := accExpiry.Add(-1 * AccessTokenDuration).Add(RefershTokenDuration).UTC()
+	_, err := rand.Read(tok)
+	if err != nil {
+		return "", expiry, err
+	}
+	encTok := base64.RawURLEncoding.EncodeToString(tok)
+	return encTok, expiry, err
 }
 
 func Authentication(next http.Handler) http.Handler {
@@ -106,7 +126,7 @@ func Authentication(next http.Handler) http.Handler {
 		}
 		// query database
 		llo := GetLLObject(r)
-		user, err := database.GetUserByUUID(r, llo.Conn, data.UserId)
+		user, err := database.GetUserByUUID(r, llo.PgConn, data.UserId)
 		if errors.Is(err, pgx.ErrNoRows) {
 			utils.EncodeError(w, http.StatusUnauthorized, invalidUser)
 			return

@@ -15,6 +15,7 @@ type ConfigType struct {
 	Host     string
 	Port     string
 	DbUrl    string
+	RedisUrl string
 }
 
 const EnvPrefix string = "USER_AUTH"
@@ -62,6 +63,7 @@ func NewConf() *ConfigType {
 		Host:     getEnv("HOST"),
 		Port:     getEnv("PORT"),
 		DbUrl:    getEnv("DB_URL"),
+		RedisUrl: getEnv("REDIS_URL"),
 	}
 	return config
 }

@@ -12,11 +12,13 @@ import (
 	"github.com/Suryarpan/user-auth-jwt/utils"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type ctxLloConfigKey string
 type LLObjects struct {
-	Conn      *pgxpool.Pool
+	PgConn    *pgxpool.Pool
+	RedisConn *redis.Client
 	Validator *validator.Validate
 }
 
@@ -24,7 +26,7 @@ const lloConfigData ctxLloConfigKey = "USER_AUTH_LLO_CONFIGS"
 
 var llos LLObjects
 
-func setupDbCon() *pgxpool.Pool {
+func setupPgDbCon() *pgxpool.Pool {
 	config := utils.NewConf()
 	dbConfig, err := pgxpool.ParseConfig(config.DbUrl)
 	if err != nil {
@@ -53,6 +55,16 @@ func setupDbCon() *pgxpool.Pool {
 	return connPool
 }
 
+func setupRedisCon() *redis.Client {
+	config := utils.NewConf()
+	opts, err := redis.ParseURL(config.RedisUrl)
+	if err != nil {
+		slog.Error("cannot parse redis configs", "error", err)
+		os.Exit(1)
+	}
+	return redis.NewClient(opts)
+}
+
 func setupValidator() *validator.Validate {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterTagNameFunc(
@@ -73,13 +85,14 @@ func LLOMiddleware(next http.Handler) http.Handler {
 
 func LLOSetup() {
 	llos = LLObjects{
-		Conn:      setupDbCon(),
+		PgConn:    setupPgDbCon(),
+		RedisConn: setupRedisCon(),
 		Validator: setupValidator(),
 	}
 }
 
 func LLOClose() {
-	llos.Conn.Close()
+	llos.PgConn.Close()
 }
 
 func GetLLObject(r *http.Request) LLObjects {
