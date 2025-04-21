@@ -52,6 +52,17 @@ func GetUserByUserName(r *http.Request, conn *pgxpool.Pool, arg string) (User, e
 	return d, err
 }
 
+const getUserById string = `SELECT pvt_id, user_id, username, display_name, password, password_salt, created_at, updated_at, last_logged_in
+FROM users
+WHERE pvt_id = $1`
+
+func GetUserById(r *http.Request, conn *pgxpool.Pool, arg int) (User, error) {
+	row := conn.QueryRow(r.Context(), getUserById, arg)
+	var d User
+	err := d.ScanRow(row)
+	return d, err
+}
+
 func GenericErrorLogger(err error, mssg string) {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
