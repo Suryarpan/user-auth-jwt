@@ -44,6 +44,7 @@ func main() {
 	// attach handlers
 	handlers.AttachHealthHandler(baseMux)
 	handlers.AttachUserHandler(baseMux)
+	handlers.AttachUserAuthedHandler(baseMux)
 	// api versioning
 	ms := middleware.ChainMiddleware(
 		middleware.ReqLogger,
