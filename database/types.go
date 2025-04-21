@@ -46,3 +46,13 @@ type CreateUserParams struct {
 	Password     []byte
 	PasswordSalt []byte
 }
+
+// Redis Token structs
+
+type RedisToken struct {
+	UserId       string    `redis:"user_id"`
+	UserPvtId    int       `redis:"user_pvt_id"`
+	Username     string    `redis:"user_name"`
+	Expiry       time.Time `redis:"-"`
+	RefreshToken string    `redis:"-"`
+}
