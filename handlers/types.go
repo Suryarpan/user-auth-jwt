@@ -49,9 +49,14 @@ type loginUserReq struct {
 	Username string `json:"username" validate:"required,min=5,max=50"`
 	Password string `json:"password" validate:"required,printascii,min=8"`
 }
-type loginUserResp struct {
+type tokenResp struct {
 	AccessToken      string    `json:"access_token"`
 	AccessExpiresAt  time.Time `json:"access_token_expires_at"`
 	RefreshToken     string    `json:"refresh_token"`
 	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
+}
+
+// refresh token handler
+type refreshTokenReq struct {
+	RefreshToken string `json:"refresh_token" validate:"required,printascii"`
 }

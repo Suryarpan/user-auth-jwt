@@ -3,6 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/Suryarpan/user-auth-jwt/database"
 	"github.com/Suryarpan/user-auth-jwt/middleware"
@@ -13,7 +14,9 @@ const (
 	usedUser    string = "username is already taken"
 	serverError string = "could not create new user"
 	authFail    string = "username or password is incorrect"
+	userFail    string = "could not find the user"
 	loginFail   string = "could not login"
+	refreshFail string = "could not refresh"
 )
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -79,20 +82,27 @@ func loginUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// tokens
-	accToken, accExpiry, err1 := middleware.UserToToken(du)
-	rfsToken, rfsExpiry, err2 := middleware.RefreshToken(du, accExpiry)
+	when := time.Now()
+	accToken, accExpiry, err1 := middleware.UserToToken(du, when)
+	rfsToken, rfsExpiry, err2 := middleware.RefreshToken(du, when)
 	if err1 != nil || err2 != nil {
 		slog.Error("could not generate tokens", "access_error", err1, "refresh_error", err2)
 		utils.EncodeError(w, http.StatusInternalServerError, loginFail)
 		return
 	}
-	err = llo.RedisConn.SetEx(r.Context(), utils.GetRedisKey(middleware.RefreshNameSpace, rfsToken), du.UserId.String(), middleware.RefershTokenDuration).Err()
+	err = database.StoreToken(r, llo.RedisConn, database.RedisToken{
+		UserId:       du.UserId.String(),
+		UserPvtId:    du.PvtId,
+		Username:     du.Username,
+		Expiry:       rfsExpiry,
+		RefreshToken: rfsToken,
+	})
 	if err != nil {
 		slog.Error("could not save refresh token", "error", err)
 		utils.EncodeError(w, http.StatusInternalServerError, loginFail)
 		return
 	}
-	resp := loginUserResp{
+	resp := tokenResp{
 		AccessToken:      accToken,
 		AccessExpiresAt:  accExpiry,
 		RefreshToken:     rfsToken,
@@ -104,7 +114,48 @@ func loginUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func refreshTokenHndler(w http.ResponseWriter, r *http.Request) {
+	t := refreshTokenReq{}
+	llo := middleware.GetLLObject(r)
+	err := utils.ValidateReq(w, r, llo.Validator, &t)
+	if err != nil {
+		return
+	}
+	// check with DB
+	v, err := database.GetToken(r, llo.RedisConn, t.RefreshToken)
+	if err != nil {
+		slog.Error("could not get refresh token", "error", err)
+		utils.EncodeError(w, http.StatusUnauthorized, userFail)
+		return
+	}
+	d, err := database.GetUserById(r, llo.PgConn, v.UserPvtId)
+	if err != nil {
+		slog.Error("could not get user data", "error", err)
+		utils.EncodeError(w, http.StatusUnauthorized, userFail)
+		return
+	}
+	// generate new tokens
+	when := time.Now()
+	accToken, accExpiry, err := middleware.UserToToken(d, when)
+	if err != nil {
+		slog.Error("could not generate tokens", "error", err)
+		utils.EncodeError(w, http.StatusInternalServerError, refreshFail)
+		return
+	}
+	resp := tokenResp{
+		AccessToken:      accToken,
+		AccessExpiresAt:  accExpiry,
+		RefreshToken:     v.RefreshToken,
+		RefreshExpiresAt: v.Expiry,
+	}
+	err = utils.Encode(w, http.StatusOK, resp)
+	if err != nil {
+		slog.Error("could not marshal", "error", err)
+	}
+}
+
 func AttachUserHandler(mux *http.ServeMux) {
 	mux.HandleFunc("POST /user", createUserHandler)
 	mux.HandleFunc("POST /login", loginUserHandler)
+	mux.HandleFunc("POST /refresh", refreshTokenHndler)
 }
