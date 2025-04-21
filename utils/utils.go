@@ -6,7 +6,3 @@ func If[T any](cond bool, tval, fval T) T {
 	}
 	return fval
 }
-
-func GetRedisKey(namespace string, k string) string {
-	return namespace + ":" + k
-}

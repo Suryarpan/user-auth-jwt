@@ -29,7 +29,6 @@ const (
 	lenPrefix           int            = len(userTokenPrefix)
 	AccessTokenDuration time.Duration  = 2 * time.Hour
 	// refresh token
-	RefreshNameSpace     string        = "user_refresh"
 	RefreshTokenLen      uint          = 128
 	RefershTokenDuration time.Duration = 24 * time.Hour
 	// messages
@@ -55,11 +54,9 @@ func tokenToUser(s string, secret []byte) (*tokenData, error) {
 		s,
 		&tokenData{},
 		func(t *jwt.Token) (any, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-			}
 			return secret, nil
 		},
+		jwt.WithTimeFunc(func() time.Time { return time.Now().UTC() }),
 		jwt.WithAudience(RegularAudience[0]),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
@@ -78,27 +75,27 @@ func tokenToUser(s string, secret []byte) (*tokenData, error) {
 	return nil, fmt.Errorf("unknown claims type")
 }
 
-func UserToToken(u database.User) (string, time.Time, error) {
+func UserToToken(u database.User, when time.Time) (string, time.Time, error) {
 	config := utils.NewConf()
-	now := time.Now().UTC()
+	expiry := when.Add(AccessTokenDuration).UTC()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS384, tokenData{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Audience:  RegularAudience,
-			ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenDuration)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiry),
+			IssuedAt:  jwt.NewNumericDate(when),
+			NotBefore: jwt.NewNumericDate(when),
 			Issuer:    TokenIssuer,
 			Subject:   u.Username,
 		},
 		UserId: u.UserId,
 	})
 	tok, err := token.SignedString(config.Secret)
-	return tok, now, err
+	return tok, expiry, err
 }
 
-func RefreshToken(u database.User, accExpiry time.Time) (string, time.Time, error) {
+func RefreshToken(u database.User, when time.Time) (string, time.Time, error) {
 	tok := make([]byte, RefreshTokenLen)
-	expiry := accExpiry.Add(-1 * AccessTokenDuration).Add(RefershTokenDuration).UTC()
+	expiry := when.Add(RefershTokenDuration).UTC()
 	_, err := rand.Read(tok)
 	if err != nil {
 		return "", expiry, err

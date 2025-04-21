@@ -93,6 +93,7 @@ func LLOSetup() {
 
 func LLOClose() {
 	llos.PgConn.Close()
+	llos.RedisConn.Close()
 }
 
 func GetLLObject(r *http.Request) LLObjects {
