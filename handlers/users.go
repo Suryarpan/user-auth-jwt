@@ -58,7 +58,10 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		utils.EncodeError(w, http.StatusInsufficientStorage, serverError)
 		return
 	}
-	utils.Encode(w, http.StatusCreated, newPublicUser(cu))
+	err = utils.Encode(w, http.StatusOK, newPublicUser(cu))
+	if err != nil {
+		slog.Error("could not marshal", "error", err)
+	}
 }
 
 func loginUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +96,6 @@ func loginUserHandler(w http.ResponseWriter, r *http.Request) {
 	err = database.StoreToken(r, llo.RedisConn, database.RedisToken{
 		UserId:       du.UserId.String(),
 		UserPvtId:    du.PvtId,
-		Username:     du.Username,
 		Expiry:       rfsExpiry,
 		RefreshToken: rfsToken,
 	})
