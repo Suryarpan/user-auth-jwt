@@ -63,6 +63,33 @@ func GetUserById(r *http.Request, conn *pgxpool.Pool, arg int) (User, error) {
 	return d, err
 }
 
+const updateUser string = `UPDATE users
+SET username = $1, display_name = $2, password = $3
+WHERE pvt_id = $4
+RETURNING *`
+
+func UpdateUser(r *http.Request, conn *pgxpool.Pool, arg UpdateUserParams) (User, error) {
+	row := conn.QueryRow(
+		r.Context(),
+		updateUser,
+		arg.Username,
+		arg.DisplayName,
+		arg.Password,
+		arg.PvtId,
+	)
+	var d User
+	err := d.ScanRow(row)
+	return d, err
+}
+
+const deleteUser string = `DELETE FROM users
+WHERE pvt_id = $1`
+
+func DeleteUser(r *http.Request, conn *pgxpool.Pool, arg int) (int64, error) {
+	row, err := conn.Exec(r.Context(), deleteUser, arg)
+	return row.RowsAffected(), err
+}
+
 func GenericErrorLogger(err error, mssg string) {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -72,5 +99,7 @@ func GenericErrorLogger(err error, mssg string) {
 			"code", pgErr.Code,
 			"constraint", pgErr.ConstraintName,
 		)
+	} else {
+		slog.Error(mssg)
 	}
 }

@@ -60,3 +60,10 @@ type tokenResp struct {
 type refreshTokenReq struct {
 	RefreshToken string `json:"refresh_token" validate:"required,printascii"`
 }
+
+// update user handler
+type updateUserReq struct {
+	Username    string `json:"username" validate:"omitempty,min=5,max=50"`
+	DisplayName string `json:"display_name" validate:"omitempty,min=5,max=150"`
+	Password    string `json:"password" validate:"omitempty,printascii,min=8"`
+}
