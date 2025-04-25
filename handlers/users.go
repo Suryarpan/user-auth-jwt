@@ -58,7 +58,7 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		utils.EncodeError(w, http.StatusInsufficientStorage, serverError)
 		return
 	}
-	err = utils.Encode(w, http.StatusOK, newPublicUser(cu))
+	err = utils.Encode(w, http.StatusCreated, newPublicUser(cu))
 	if err != nil {
 		slog.Error("could not marshal", "error", err)
 	}
